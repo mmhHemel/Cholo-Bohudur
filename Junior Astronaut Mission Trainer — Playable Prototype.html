@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Junior Astronaut Mission Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#EDEFF3; --panel:#FFFFFF; --panel2:#F1F3F8; --border:#C7CDD9; --text:#131A29; --dim:#4B5468;
+    --gold:#B9761F; --teal:#0E8C82; --danger:#C23B52; --ok:#1E9E5A; --warn:#C98A12;
+    box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:#0D1321; --panel:#141B2E; --panel2:#1B2440; --border:#2A3550; --text:#E7ECF5; --dim:#9AA5BD;
+      --gold:#F2A93B; --teal:#35D0BA; --danger:#F0637A; --ok:#4ADE80; --warn:#FBBF24;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:#0D1321; --panel:#141B2E; --panel2:#1B2440; --border:#2A3550; --text:#E7ECF5; --dim:#9AA5BD;
+    --gold:#F2A93B; --teal:#35D0BA; --danger:#F0637A; --ok:#4ADE80; --warn:#FBBF24;
+  }
+  html { scroll-padding-top:env(safe-area-inset-top,0px); }
+  html, body { height:100%; margin:0; }
+  * { box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'IBM Plex Sans',system-ui,sans-serif; overflow:hidden; -webkit-tap-highlight-color:transparent; }
+  #app { height:100%; max-width:1100px; margin:0 auto; display:flex; flex-direction:column; position:relative; background:var(--bg); }
+
+  /* HUD */
+  #hud { background:var(--panel); border-bottom:1px solid var(--border); padding:8px 12px; }
+  .hud-top { display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--dim); }
+  .meters { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-top:6px; }
+  .meter { display:flex; align-items:center; gap:5px; font-size:12px; min-width:0; }
+  .meter .mi { font-size:15px; }
+  .meter b { font-family:'IBM Plex Mono',monospace; font-weight:500; width:26px; text-align:right; font-size:11px; }
+  .bar { flex:1; height:8px; background:var(--panel2); border-radius:4px; overflow:hidden; border:1px solid var(--border); min-width:20px; }
+  .bar i { display:block; height:100%; width:100%; background:var(--ok); transition:width .6s ease, background .3s; }
+  .faults { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .faults:empty { display:none; }
+  .fchip { font-size:11px; padding:2px 9px; border:1px solid var(--danger); color:var(--danger); border-radius:99px; }
+
+  /* Stage */
+  #stage { position:relative; flex:1; min-height:170px; background:#05070f; overflow:hidden; }
+  #c2d { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  #capWrap { position:absolute; left:0; right:0; bottom:0; padding:22px 16px 12px; background:linear-gradient(transparent, rgba(0,0,0,.78)); color:#fff; }
+  #capWrap[hidden] { display:none; }
+  #cap { font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:17px; margin-bottom:8px; }
+  #capBar { height:5px; background:rgba(255,255,255,.22); border-radius:3px; overflow:hidden; }
+  #capBar i { display:block; height:100%; width:0; background:#F2A93B; }
+
+  /* Track */
+  #track { position:relative; height:30px; background:var(--panel); border-top:1px solid var(--border); }
+  #track .line { position:absolute; left:28px; right:28px; top:14px; height:2px; background:var(--border); }
+  #track .dot { position:absolute; top:9px; width:12px; height:12px; border-radius:50%; background:var(--panel2); border:2px solid var(--border); transform:translateX(-6px); }
+  #track .dot.done { background:var(--teal); border-color:var(--teal); }
+  #track .dot.end { border-color:var(--gold); }
+  #marker { position:absolute; top:2px; font-size:16px; transform:translateX(-9px); transition:left 2.6s linear; }
+
+  /* Card zone */
+  #cardZone { background:var(--panel); border-top:1px solid var(--border); padding:14px; max-height:58vh; overflow:auto; }
+  #cardZone:empty { display:none; }
+  .card-head { display:flex; gap:12px; align-items:center; margin-bottom:6px; }
+  .card-head .big { font-size:34px; line-height:1; }
+  .card-head h2 { font-family:'Space Grotesk',sans-serif; font-size:19px; margin:0; }
+  .card-text { margin:2px 0 12px; color:var(--dim); font-size:14.5px; line-height:1.5; }
+  .choices { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; }
+  .choice { text-align:left; background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:11px 12px; cursor:pointer; color:var(--text); font-family:inherit; display:flex; flex-direction:column; gap:4px; transition:transform .12s, border-color .12s; }
+  .choice:hover:not(:disabled) { transform:translateY(-2px); border-color:var(--gold); }
+  .choice .ci { font-size:24px; }
+  .choice .cl { font-weight:600; font-size:14.5px; }
+  .choice .ch { font-size:12.5px; color:var(--dim); }
+  .choice.expert { border-color:var(--teal); box-shadow:0 0 0 1px var(--teal) inset; }
+  .choice:disabled { opacity:.5; cursor:not-allowed; }
+  .lock { font-size:12px; color:var(--danger); font-weight:600; }
+  .chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:2px; }
+  .chip { font-size:11.5px; padding:1px 7px; border-radius:99px; border:1px solid var(--border); font-family:'IBM Plex Mono',monospace; }
+  .chip.up { color:var(--ok); border-color:var(--ok); }
+  .chip.down { color:var(--danger); border-color:var(--danger); }
+  .chip.warn { color:var(--warn); border-color:var(--warn); }
+  .chip.dice { color:var(--dim); }
+
+  .btn { background:var(--gold); color:#1a1205; border:0; border-radius:8px; padding:11px 22px; font-weight:600; font-size:15px; font-family:inherit; cursor:pointer; margin-top:12px; }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
+  .btn.ghost { background:transparent; color:var(--text); border:1px solid var(--border); }
+
+  .advisor { display:flex; gap:12px; margin-top:12px; padding:12px; border:1px solid var(--warn); border-radius:10px; background:var(--panel2); }
+  .advisor .av { position:relative; font-size:38px; line-height:1; flex:none; }
+  .advisor .av span { position:absolute; right:-8px; bottom:-6px; font-size:20px; }
+  .advisor p { margin:2px 0; font-size:14px; line-height:1.45; }
+  .advisor .fact { color:var(--dim); font-size:13.5px; }
+
+  /* Overlay screens */
+  #planetScreen { position:absolute; inset:0; z-index:5; background:radial-gradient(ellipse at center,#0b1230 0%,#02040a 75%); display:none; }
+  #three { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  #planetUI { position:absolute; inset:0; pointer-events:none; display:flex; flex-direction:column; justify-content:space-between; padding:22px 16px 20px; color:#E7ECF5; text-align:center; }
+  #planetUI h1 { font-family:'Space Grotesk',sans-serif; font-size:clamp(22px,4.6vw,38px); margin:0 0 4px; }
+  #planetUI p { margin:0; color:#9AA5BD; font-size:14.5px; }
+  .pbtns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; pointer-events:auto; }
+  .pbtn { background:rgba(20,27,46,.85); color:#E7ECF5; border:1px solid #2A3550; border-radius:12px; padding:12px 18px; cursor:pointer; font-family:inherit; min-width:170px; }
+  .pbtn:hover { border-color:#F2A93B; }
+  .pbtn b { display:block; font-family:'Space Grotesk',sans-serif; font-size:17px; }
+  .pbtn small { color:#9AA5BD; }
+
+  #screen { position:absolute; inset:0; z-index:6; background:rgba(3,5,12,.9); display:none; overflow:auto; }
+  #screen .inner { max-width:760px; margin:0 auto; padding:26px 16px 40px; color:#E7ECF5; }
+  #screen h2 { font-family:'Space Grotesk',sans-serif; font-size:26px; margin:0 0 4px; }
+  #screen .sub { color:#9AA5BD; margin:0 0 16px; font-size:14.5px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; }
+  .rcard { background:var(--panel); color:var(--text); border:2px solid var(--border); border-radius:12px; padding:12px; cursor:pointer; text-align:left; font-family:inherit; display:flex; flex-direction:column; gap:3px; }
+  .rcard .ri { font-size:30px; }
+  .rcard b { font-family:'Space Grotesk',sans-serif; font-size:16px; }
+  .rcard span { font-size:13px; color:var(--dim); }
+  .rcard.sel { border-color:var(--teal); box-shadow:0 0 0 2px var(--teal); }
+  .count { font-family:'IBM Plex Mono',monospace; color:#F2A93B; margin:14px 0 0; }
+  .tl { list-style:none; padding:0; margin:12px 0 0; }
+  .tl li { padding:8px 0; border-bottom:1px solid #2A3550; font-size:14px; color:#C9D2E6; }
+  .stars { font-size:34px; letter-spacing:6px; }
+  #toast { position:absolute; left:50%; top:16px; transform:translateX(-50%); background:rgba(10,14,28,.88); color:#fff; padding:9px 16px; border-radius:10px; font-size:14px; z-index:3; display:none; text-align:center; }
+
+  @media (max-width:560px) {
+    .meters { gap:6px; } .meter .mi { font-size:13px; } .meter b { display:none; }
+    .card-head .big { font-size:28px; } .card-head h2 { font-size:17px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="hud" hidden>
+    <div class="hud-top"><span id="solLabel"></span><span id="planetLabel"></span></div>
+    <div class="meters" id="meters"></div>
+    <div class="faults" id="faults"></div>
+  </div>
+  <div id="stage">
+    <canvas id="c2d"></canvas>
+    <div id="toast"></div>
+    <div id="capWrap" hidden><div id="cap"></div><div id="capBar"><i></i></div></div>
+  </div>
+  <div id="track" hidden><div class="line"></div><div id="marker">🚙</div></div>
+  <div id="cardZone"></div>
+
+  <div id="planetScreen">
+    <canvas id="three"></canvas>
+    <div id="planetUI">
+      <div><h1>Junior Astronaut Mission Trainer</h1><p>Step 1 · Choose your world. Tap a planet or a button.</p></div>
+      <div class="pbtns">
+        <button class="pbtn" data-planet="moon"><b>🌕 The Moon</b><small>Freezing nights · tiny space rocks</small></button>
+        <button class="pbtn" data-planet="mars"><b>🔴 Mars</b><small>Dust storms · solar flares</small></button>
+      </div>
+    </div>
+  </div>
+  <div id="screen"><div class="inner" id="screenInner"></div></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const clamp = (v,a=0,b=100) => Math.max(a, Math.min(b, v));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const lerp = (a,b,t) => a + (b-a)*t;
+function mulberry(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+
+/* ---------------- DATA ---------------- */
+const ROLES = {
+  commander:{icon:'🎖️',name:'Commander',desc:'Leads the team. Makes risky repairs more likely to work.'},
+  pilot:{icon:'🚀',name:'Pilot',desc:'Smooth landings. Can drive a supply run.'},
+  mechanic:{icon:'🔧',name:'Mechanic',desc:'Fixes power and air machines.'},
+  medic:{icon:'🩺',name:'Medic',desc:'Keeps the crew healthy.'},
+  botanist:{icon:'🌱',name:'Botanist',desc:'Grows the food in the greenhouse.'},
+  comms:{icon:'📡',name:'Comms Officer',desc:'Tracks storms, flares and the long night.'}
+};
+const METERS = {
+  power:{icon:'⚡',name:'Power'}, o2:{icon:'💨',name:'Air'}, food:{icon:'🌱',name:'Food'},
+  shield:{icon:'🛡️',name:'Shield'}, crew:{icon:'❤️',name:'Crew'}
+};
+const PLANETS = { moon:{name:'The Moon',emoji:'🌕'}, mars:{name:'Mars',emoji:'🔴'} };
+const DEATH = {
+  power:'The power ran out. The base went dark and cold.',
+  o2:'The air ran out. The crew could not breathe.',
+  food:'The food ran out. The crew had nothing to eat.',
+  shield:'The radiation shield failed. The crew was not safe.',
+  crew:'The crew became too sick and tired to go on.'
+};
+
+let S = null;
+function resetState(){
+  S = { planet:null, crew:[], lander:null, sol:0, m:{power:100,o2:100,food:100,shield:100,crew:100},
+        faults:[], allFaults:[], prepared:false, dead:null, nextId:1 };
+}
+resetState();
+
+/* ---------------- CARD BUILDERS ---------------- */
+const E = (role,icon,label,hint,fx,anim,caption,msg) => ({icon,label,hint,needs:role,fx,anim,caption,msg});
+const R = (icon,label,hint,fx,failFx,fault,anim,caption,msgOk,msgBad) => ({icon,label,hint,risky:true,fx,failFx,fault,anim,caption,msgOk,msgBad});
+const K = (icon,label,hint,fx,fault,anim,caption,msg) => ({icon,label,hint,wrong:true,fx,fault,anim,caption,msg});
+const O = (icon,label,hint,fx,anim,caption,msg,extra) => Object.assign({icon,label,hint,fx,anim,caption,msg}, extra||{});
+
+function cardsForSol(sol){
+  const moon = S.planet === 'moon';
+  const F = (system,days,dmg,name,cause,extra) => Object.assign({system,days,dmg,name,cause}, extra||{});
+  switch(sol){
+  case 1: return [{
+    icon:'🏕️', title:'Welcome to your outpost',
+    text:'Your rover has arrived! The 5 bars at the top are your base. If ANY bar hits zero, the mission ends. Choose where to focus first.',
+    choices:[
+      O('💨','Check the air','Air up, food down',{o2:8,food:-4},'power','Testing the air machines…','Good start! The air is fresh.'),
+      O('🌱','Plant the seeds','Food up, shield down',{food:8,shield:-4},'plants','Planting the first seeds…','The first seeds are in the soil.'),
+      O('🛡️','Set up the shield','Shield up, power down',{shield:8,power:-4},'shield','Raising the radiation shield…','The shield is glowing.')
+    ]}];
+  case 2: return [{
+    icon:'🔊', title:'Strange noise from the generator',
+    text:'The backup generator is humming in a strange way. What should the team do?',
+    fact:'Real spacecraft carry backup power and inspect machines early. On Apollo 13 in 1970, one damaged oxygen tank quickly led to power and air problems.',
+    choices:[
+      E('mechanic','🔧','Mechanic checks it','Safe fix',{power:-3},'repair','The Mechanic repairs the generator…','The Mechanic fixed it before it broke.'),
+      R('🎲','Try it ourselves','Risky',{power:-5},{power:-5},F('power',3,20,'Generator failure','You skipped the generator check'),'repair','The crew tinkers with the generator…','Lucky! You fixed it.','The repair did not work. The generator is still faulty…'),
+      K('⏭️','Ignore it','Saves effort now',{crew:2},F('power',3,20,'Generator failure','You ignored the noisy generator'),'rest','The crew keeps working…','You left the generator alone.')
+    ]}];
+  case 3: return [{
+    icon:'🚰', title:'The water recycler is clogged',
+    text:'Dirty water is backing up. The air machines share the same pipes.',
+    fact:'On the International Space Station, a water recovery system turns sweat and urine back into drinking water. Astronauts must keep its filters working.',
+    choices:[
+      E('mechanic','🔧','Mechanic cleans it','Safe fix',{o2:-3},'repair','The Mechanic cleans the filters…','The recycler works again.'),
+      R('🎲','Try it ourselves','Risky',{o2:-5},{o2:-5},F('o2',4,20,'Air system failure','You skipped the recycler repair'),'repair','The crew pokes at the pipes…','Lucky! The pipes are clear.','That did not fix it. Trouble is coming…'),
+      K('⏭️','Ignore it','Saves effort now',{crew:2},F('o2',4,20,'Air system failure','You ignored the clogged recycler'),'rest','The crew looks the other way…','You left the recycler alone.')
+    ]},{
+    icon:'💡', title:'The greenhouse lights flicker',
+    text:'The plants need steady light to grow. The lights keep blinking.',
+    fact:"NASA's Veggie plant chamber on the ISS has grown lettuce and other crops. Plants need steady light to grow well.",
+    choices:[
+      E('botanist','🌱','Botanist fixes the lights','Safe fix',{power:-3},'plants','The Botanist fixes the grow lights…','The plants are happy again.'),
+      R('🎲','Try it ourselves','Risky',{power:-5},{power:-5},F('food',3,20,'Crop failure','You skipped the greenhouse repair'),'plants','The crew fiddles with the lights…','Lucky! The lights are steady.','The lights still flicker. The plants suffer…'),
+      K('⏭️','Ignore it','Saves effort now',{crew:2},F('food',3,20,'Crop failure','You ignored the flickering lights'),'rest','The crew goes about its day…','You left the lights alone.')
+    ]}];
+  case 4: return [{
+    icon:'🤒', title:'A crew member feels sick',
+    text:'One astronaut has a fever and feels dizzy. Living together in a tiny base, germs spread fast.',
+    fact:'In a sealed space, germs spread easily. Space crews train in first aid and can talk to doctors on Earth.',
+    choices:[
+      E('medic','🩺','Medic treats them','Safe fix',{food:-3},'med','The Medic checks the patient…','The Medic helped. Everyone is fine.'),
+      R('🎲','Try to treat them','Risky',{food:-5},{crew:-5},F('crew',3,20,'Crew illness spreads','You skipped the medical check'),'med','The crew tries first aid…','Lucky! A good rest fixed it.','They are still sick. It might spread…'),
+      K('⏭️','Let them push through','Saves effort now',{power:2},F('crew',3,20,'Crew illness spreads','You ignored a sick crew member'),'rest','The crew keeps going…','You hoped it would pass.')
+    ]}];
+  case 5: return [{
+    icon:'📻', title: moon ? 'Message from Earth: a long night is coming' : 'Message from Earth: a dust storm is coming',
+    text: moon ? 'Mission Control warns that the Sun will soon set for about two weeks. Save power now, or keep working?' : 'Mission Control warns that a huge dust storm is heading your way. Save power now, or keep working?',
+    choices:[
+      O('🔋','Ration power now','Power up, crew down',{power:10,crew:-5},'power','The crew saves every watt…','Power is rationed. The base is better prepared.',{setPrepared:true}),
+      O('⚡','Keep working','Crew up. Not prepared',{crew:5},'rest','The crew keeps busy…','The crew is cheerful, but you are not prepared.')
+    ]}];
+  case 6: return [{
+    icon: moon ? '🌑' : '🌪️', title: moon ? 'The Long Night begins' : 'The dust storm hits',
+    text: moon ? 'The Sun has set for about 14 Earth days. Solar panels are dark and it is freezing.' : 'Dust covers the solar panels and the sky turns red. Power is dropping.',
+    fact: moon ? 'A night on the Moon lasts about 14 Earth days and is extremely cold. Bases need batteries or other power sources.' : "In 2018 a huge dust storm blocked the Sun and ended NASA's Opportunity rover mission.",
+    planetEvent:true,
+    choices:[
+      E('comms','📡','Comms plans the power','Safe plan',{power:-4},'radio','The Comms Officer plans every watt…','The power plan works. The base is ready.'),
+      R('🎲','Guess a plan','Risky',{power:-6},{power:-14},F('power',3,25,'Power blackout',moon?'You had no night power plan':'You had no storm power plan',{planetEvent:true}),'radio','The crew guesses a power plan…','Lucky guess! Power is holding.','The guess was wrong. Power is draining…'),
+      K('⏭️','Wait and see','No plan',{power:-10},F('power',3,25,'Power blackout',moon?'You waited out the long night with no plan':'You waited out the storm with no plan',{planetEvent:true}),'rest','The crew waits and hopes…','You waited. Power is dropping.')
+    ]}];
+  case 7: return [{
+    icon:'📦', title:'Supplies are running low',
+    text:'The crisis is not over. Where should the team put its effort?',
+    choices:[
+      E('pilot','🚙','Pilot drives to a supply cache','Big recovery',{power:12,o2:12,food:12},'supply','The Pilot races to the supply cache…','The Pilot came back with supplies!'),
+      O('⚡','Protect the power','Power up, air down',{power:15,o2:-8},'power','The crew protects the power…','Power is safer, but air is lower.'),
+      O('💨','Protect the air','Air up, food down',{o2:15,food:-8},'shield','The crew protects the air…','Air is safer, but food is lower.')
+    ]}];
+  case 8: return [{
+    icon:'🛠️', title:'A quiet moment',
+    text: S.faults.length ? 'Warning lights are still on. You can stop ONE problem before it hits!' : 'Everything looks calm. Use this time to improve the base.',
+    choices:[
+      O('🛠️','Fix a warning','Stops the next problem',{},'repair','The crew fixes a warning light…','',{special:'patch'}),
+      O('🛡️','Repair the shield','Shield up',{shield:15},'shield','The crew patches the shield plates…','The shield is stronger.'),
+      O('😴','Crew rest day','Crew up',{crew:15},'rest','The crew rests…','Everyone feels better.')
+    ]}];
+  case 9: return [
+    moon ? {
+      icon:'☄️', title:'A space rock hits the base!',
+      text:'A tiny rock punched a hole in the wall. Air and radiation are leaking.',
+      fact:'The Moon has no thick atmosphere, so even tiny space rocks (micrometeoroids) hit at very high speed. Bases need strong, layered walls.',
+      choices:[
+        E('mechanic','🔧','Mechanic seals the hole','Safe fix',{shield:-5},'repair','The Mechanic seals the hole…','The wall is sealed.'),
+        R('🎲','Patch it ourselves','Risky',{shield:-8},{shield:-15,o2:-5},F('shield',1,20,'Hull leak','You did not properly seal the hull'),'repair','The crew patches the hole…','Lucky! The patch holds.','The patch is weak. It may fail soon…'),
+        K('⏭️','Ignore it','Saves effort now',{shield:-15,o2:-5},F('shield',1,20,'Hull leak','You ignored the hole in the wall'),'rest','The crew ignores the hiss…','You left the hole open.')
+      ]} : {
+      icon:'☀️', title:'A solar flare is coming!',
+      text:'The Sun just released a burst of radiation. It will reach the base soon.',
+      fact:'Solar flares can release dangerous radiation. Astronauts would shelter in the most shielded part of the base, and warnings can be short.',
+      choices:[
+        E('comms','📡','Comms warns the crew','Safe fix',{shield:-5},'radio','The Comms Officer sends the alarm…','Everyone reached the shelter in time.'),
+        R('🎲','Guess when it hits','Risky',{shield:-8},{shield:-15,crew:-5},F('shield',1,20,'Radiation damage','You had no flare warning'),'radio','The crew guesses when to hide…','Lucky guess! Everyone is safe.','You guessed wrong. Radiation got in…'),
+        K('⏭️','Ignore it','Saves effort now',{shield:-15,crew:-5},F('shield',1,20,'Radiation damage','You ignored the solar flare'),'rest','The crew keeps working outside…','You did not shelter.')
+      ]},
+    {
+      icon:'😮‍💨', title:'The crew is tired',
+      text:'Nearly there, but everyone is worn out. How do you keep morale up?',
+      choices:[
+        O('🎬','Movie night','Crew up, power down',{crew:12,power:-5},'rest','The crew watches a movie…','Spirits are high!'),
+        O('🔧','Extra maintenance','Shield up, crew down',{shield:8,crew:-8},'repair','The crew does extra repairs…','The base is stronger, but people are tired.'),
+        O('🍲','Big hot meal','Crew up, food down',{crew:8,food:-6},'plants','The crew shares a big meal…','A hot meal cheers everyone up.')
+      ]}];
+  case 10: return [{
+    icon:'🏁', title:'Hold the line!',
+    text:'One last day. Finish strong and bring everyone home!',
+    choices:[
+      O('📡','Send the final report','Crew up',{crew:10},'radio','Sending the final report to Earth…','Earth is proud of you!'),
+      O('🔋','Save the power','Power up, crew down',{power:10,crew:-4},'power','Saving every last watt…','Power is steady.'),
+      O('💨','Double-check the air','Air up, food down',{o2:10,food:-4},'shield','Double-checking the air machines…','The air is fresh.')
+    ]}];
+  }
+  return [];
+}
+
+/* ---------------- HUD / UI HELPERS ---------------- */
+function buildHud(){
+  $('#meters').innerHTML = Object.keys(METERS).map(k =>
+    `<div class="meter" data-k="${k}" title="${METERS[k].name}"><span class="mi">${METERS[k].icon}</span><div class="bar"><i></i></div><b>100</b></div>`
+  ).join('');
+  const t = $('#track');
+  for (let i=1;i<=10;i++){
+    const d = document.createElement('div');
+    d.className = 'dot' + (i===10?' end':''); d.dataset.n = i;
+    d.style.left = `calc(28px + (100% - 56px) * ${(i-1)/9})`;
+    t.appendChild(d);
+  }
+}
+function updateHud(){
+  $('#hud').hidden = false;
+  $('#solLabel').textContent = `SOL ${Math.max(S.sol,1)} / 10`;
+  $('#planetLabel').textContent = S.planet ? `${PLANETS[S.planet].emoji} ${PLANETS[S.planet].name}` : '';
+  for (const k in METERS){
+    const el = document.querySelector(`.meter[data-k="${k}"]`); const v = S.m[k];
+    const i = el.querySelector('i'); i.style.width = v + '%';
+    i.style.background = v > 50 ? 'var(--ok)' : v > 25 ? 'var(--warn)' : 'var(--danger)';
+    el.querySelector('b').textContent = Math.round(v);
+  }
+  $('#faults').innerHTML = S.faults.map(f =>
+    `<span class="fchip">⚠️ ${METERS[f.system].icon} ${f.name} · in ${f.daysLeft} day${f.daysLeft===1?'':'s'}</span>`).join('');
+}
+function setTrack(sol, instant){
+  $('#track').hidden = false;
+  const m = $('#marker');
+  if (instant) m.style.transition = 'none';
+  m.style.left = `calc(28px + (100% - 56px) * ${(sol-1)/9})`;
+  if (instant) { void m.offsetWidth; m.style.transition = ''; }
+  document.querySelectorAll('#track .dot').forEach(d => d.classList.toggle('done', +d.dataset.n <= S.sol));
+}
+function toast(html, ms){
+  const t = $('#toast'); t.innerHTML = html; t.style.display = 'block';
+  if (ms) setTimeout(() => { t.style.display = 'none'; }, ms);
+}
+function hideToast(){ $('#toast').style.display = 'none'; }
+function chips(fx){
+  return Object.keys(fx||{}).filter(k => fx[k]).map(k =>
+    `<span class="chip ${fx[k]>0?'up':'down'}">${METERS[k].icon} ${fx[k]>0?'▲ +':'▼ '}${fx[k]}</span>`).join('');
+}
+function showScreen(html){ $('#screenInner').innerHTML = html; $('#screen').style.display = 'block'; $('#screen').scrollTop = 0; }
+function hideScreen(){ $('#screen').style.display = 'none'; }
+
+/* ---------------- 2D CANVAS ---------------- */
+const cv = $('#c2d'), ctx = cv.getContext('2d');
+let W=0, H=0, DPR=1;
+const world = { mode:'menu', anim:null, actor:null, t0:0, dur:5000, scroll:0, last:0 };
+const starR = mulberry(11);
+const STARS = Array.from({length:150}, () => ({x:starR(), y:starR(), r:starR()*1.4+.3, tw:starR()*6}));
+const rockR = mulberry(5);
+const ROCKS = Array.from({length:40}, () => ({x:rockR()*2400, y:rockR(), s:rockR()*6+2}));
+const EMOJI = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
+
+function resize(){
+  const r = cv.getBoundingClientRect();
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = Math.max(1, r.width); H = Math.max(1, r.height);
+  cv.width = W*DPR; cv.height = H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  layoutThree();
+}
+function rr(x,y,w,h,r,fill){
+  ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+}
+function emoji(ch, x, y, size, alpha){
+  ctx.save(); ctx.globalAlpha = alpha==null?1:alpha; ctx.font = `${size}px ${EMOJI}`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(ch, x, y); ctx.restore();
+}
+function drawStars(t, a){
+  ctx.fillStyle = '#fff';
+  for (const s of STARS){
+    ctx.globalAlpha = a * (0.55 + 0.45*Math.sin(t/700 + s.tw));
+    ctx.beginPath(); ctx.arc(s.x*W, s.y*H*0.9, s.r, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+function envFor(sol){
+  if (!S.planet || !sol) return null;
+  if (S.planet === 'moon') return (sol>=6 && sol<=9) ? 'night' : null;
+  return (sol>=6 && sol<=8) ? 'storm' : (sol===9 ? 'flare' : null);
+}
+function hills(col, gy, base, amp, wl, par){
+  ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, gy);
+  for (let x=0; x<=W; x+=10){
+    const xx = x + world.scroll*par;
+    const y = base - (Math.sin(xx/wl)*0.6 + Math.sin(xx/(wl*0.43)+1.7)*0.4 + 1)*amp*0.5;
+    ctx.lineTo(x, y);
+  }
+  ctx.lineTo(W, gy); ctx.closePath(); ctx.fill();
+}
+function drawRover(rx, gy, u, t, moving){
+  ctx.save(); ctx.translate(rx, gy); ctx.scale(u,u);
+  if (moving) ctx.translate(0, Math.sin(t/80)*1.4);
+  rr(-72,-48,144,34,10,'#e9edf5');
+  rr(-38,-78,68,34,9,'#c4cfe3');
+  rr(-30,-72,46,20,6,'#27467a');
+  ctx.fillStyle = '#1e2b47'; ctx.fillRect(-2,-96,4,20);
+  ctx.fillStyle = (Math.floor(t/400)%2) ? '#ff5b5b' : '#7a2a2a'; ctx.beginPath(); ctx.arc(0,-98,4,0,7); ctx.fill();
+  rr(-64,-58,42,8,3,'#20304f');
+  for (const wx of [-48,0,48]){
+    ctx.save(); ctx.translate(wx, -6); ctx.rotate(moving ? t/110 : 0);
+    ctx.fillStyle = '#2b2f3a'; ctx.beginPath(); ctx.arc(0,0,17,0,7); ctx.fill();
+    ctx.fillStyle = '#9aa3b5'; ctx.beginPath(); ctx.arc(0,0,7,0,7); ctx.fill();
+    ctx.fillStyle = '#2b2f3a'; ctx.fillRect(-1.5,-14,3,28); ctx.restore();
+  }
+  ctx.restore();
+}
+function drawCrew(rx, gy, u, t){
+  const n = S.crew.length;
+  for (let i=0;i<n;i++){
+    const role = S.crew[i]; const active = world.actor === role && world.mode==='anim';
+    const bx = rx + 110*u + i*30*u + (active ? 26*u*Math.min(1,(t-world.t0)/500) : 0);
+    const by = gy + 2*u + Math.sin(t/(active?120:500) + i)*(active?4:1.5)*u;
+    emoji('🧑‍🚀', bx, by - 14*u, 26*u);
+    emoji(ROLES[role].icon, bx, by - 42*u, 13*u);
+  }
+}
+function drawAnimFx(type, p, t, u, rx, gy){
+  const cx = rx + 70*u, cy = gy - 92*u;
+  const pulse = 1 + Math.sin(t/140)*0.12;
+  switch(type){
+  case 'repair':
+    for (let i=0;i<12;i++){
+      const ph = (p*5 + i*0.37) % 1, a = i*2.4;
+      ctx.fillStyle = `rgba(255,${190+i*5},70,${1-ph})`;
+      ctx.beginPath(); ctx.arc(cx + Math.cos(a)*ph*46*u, cy + 30*u + Math.sin(a)*ph*30*u - ph*20*u, 2.5*u, 0, 7); ctx.fill();
+    }
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.sin(t/110)*0.5); emoji('🔧', 0, 0, 34*u); ctx.restore(); break;
+  case 'power':
+    ctx.fillStyle = `rgba(255,210,70,${0.18 + 0.12*Math.sin(t/120)})`; ctx.beginPath(); ctx.arc(cx, cy, 44*u*pulse, 0, 7); ctx.fill();
+    emoji('⚡', cx, cy, 40*u*pulse); break;
+  case 'plants': {
+    ctx.fillStyle = 'rgba(160,220,255,.28)'; ctx.beginPath(); ctx.arc(cx, cy+40*u, 40*u, Math.PI, 0); ctx.fill();
+    ctx.strokeStyle = 'rgba(200,235,255,.7)'; ctx.lineWidth = 2; ctx.stroke();
+    emoji('🌱', cx, cy+30*u, (14 + 26*p)*u); break; }
+  case 'med':
+    emoji('🩺', cx, cy, 36*u*pulse);
+    for (let i=0;i<3;i++){ const ph=(p*3+i/3)%1; emoji('➕', cx+(i-1)*24*u, cy - 10*u - ph*40*u, 16*u, 1-ph); } break;
+  case 'radio':
+    emoji('📡', cx, cy+8*u, 34*u);
+    for (let i=0;i<3;i++){ const ph=(p*2.4+i/3)%1;
+      ctx.strokeStyle = `rgba(120,220,255,${1-ph})`; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(cx+8*u, cy-6*u, (12+ph*46)*u, -1.2, -0.2); ctx.stroke(); } break;
+  case 'shield':
+    ctx.strokeStyle = `rgba(90,200,255,${0.5+0.3*Math.sin(t/160)})`; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(rx, gy-30*u, 120*u*pulse, Math.PI*1.08, Math.PI*1.92); ctx.stroke();
+    emoji('🛡️', cx, cy, 34*u*pulse); break;
+  case 'rest':
+    for (let i=0;i<3;i++){ const ph=(p*2+i/3)%1; emoji('💤', cx+i*18*u, cy+10*u - ph*50*u, (14+i*4)*u, 1-ph); } break;
+  case 'supply':
+    emoji('📦', cx, cy + Math.sin(t/200)*4*u, 36*u); break;
+  default: emoji('⚙️', cx, cy, 34*u);
+  }
+}
+function drawWorld(t, dt){
+  const planet = S.planet || 'moon';
+  const env = envFor(S.sol);
+  const u = Math.max(0.5, H/400), gy = H*0.72;
+  const speed = world.mode==='drive' ? 170 : (world.mode==='anim' && world.anim==='supply' ? 120 : 6);
+  world.scroll += speed*u*dt/1000;
+  const g = ctx.createLinearGradient(0,0,0,gy);
+  if (planet==='moon'){ g.addColorStop(0,'#03050c'); g.addColorStop(1,'#151b30'); }
+  else { g.addColorStop(0,'#5b2f22'); g.addColorStop(1,'#e0965f'); }
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,gy+2);
+  if (planet==='moon') drawStars(t, 1); else if (env==='storm') drawStars(t, 0.05); else drawStars(t, 0.35);
+  if (planet==='moon'){
+    const ex=W*0.78, ey=H*0.2, er=26*u;
+    ctx.fillStyle='#2a6fd6'; ctx.beginPath(); ctx.arc(ex,ey,er,0,7); ctx.fill();
+    ctx.fillStyle='#3fae62'; ctx.beginPath(); ctx.arc(ex-er*.3,ey-er*.1,er*.35,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(ex+er*.35,ey+er*.35,er*.22,0,7); ctx.fill();
+    ctx.fillStyle='rgba(0,0,0,.28)'; ctx.beginPath(); ctx.arc(ex+er*.35,ey,er,0,7); ctx.globalCompositeOperation='source-atop'; ctx.fill(); ctx.globalCompositeOperation='source-over';
+    if (env!=='night'){ ctx.fillStyle='#fff6c8'; ctx.beginPath(); ctx.arc(W*0.2,H*0.16,14*u,0,7); ctx.fill(); }
+  } else {
+    ctx.fillStyle='rgba(255,240,210,.9)'; ctx.beginPath(); ctx.arc(W*0.8,H*0.22,13*u,0,7); ctx.fill();
+  }
+  const c1 = planet==='moon' ? ['#4b4e58','#62666f'] : ['#7c3b25','#94472c'];
+  hills(c1[0], gy, gy-18*u, 60*u, 90*u, 0.15);
+  hills(c1[1], gy, gy-4*u, 34*u, 60*u, 0.35);
+  const gg = ctx.createLinearGradient(0,gy,0,H);
+  if (planet==='moon'){ gg.addColorStop(0,'#8c8f98'); gg.addColorStop(1,'#5a5d66'); } else { gg.addColorStop(0,'#b0552f'); gg.addColorStop(1,'#7a3620'); }
+  ctx.fillStyle = gg; ctx.fillRect(0,gy,W,H-gy);
+  ctx.fillStyle = planet==='moon' ? 'rgba(60,62,70,.55)' : 'rgba(90,35,20,.5)';
+  for (const r of ROCKS){
+    const x = (((r.x - world.scroll) % (W+200)) + (W+200)) % (W+200) - 100;
+    ctx.beginPath(); ctx.ellipse(x, gy + 12*u + r.y*(H-gy-24*u), r.s*u*1.6, r.s*u*0.8, 0, 0, 7); ctx.fill();
+  }
+  const rx = W*0.3;
+  const moving = world.mode==='drive' || (world.mode==='anim' && world.anim==='supply');
+  if (world.mode!=='drive') drawCrew(rx, gy+14*u, u, t);
+  drawRover(rx, gy+22*u, u, t, moving);
+  if (world.mode==='anim') drawAnimFx(world.anim, clamp((t-world.t0)/world.dur,0,1), t, u, rx, gy);
+  if (env==='night'){ ctx.fillStyle='rgba(0,4,20,.5)'; ctx.fillRect(0,0,W,H); }
+  if (env==='storm'){
+    ctx.fillStyle='rgba(190,105,50,.38)'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='rgba(235,170,110,.45)';
+    for (let i=0;i<70;i++){
+      const x = (((i*137 - t*0.5*(1+i%3*0.4)) % (W+100)) + (W+100)) % (W+100) - 50;
+      const y = (i*53.7 % H) + Math.sin(t/400+i)*6;
+      ctx.fillRect(x, y, 14*u, 2*u);
+    }
+  }
+  if (env==='flare'){ ctx.fillStyle = `rgba(255,200,90,${0.10 + 0.10*Math.sin(t/200)})`; ctx.fillRect(0,0,W,H); }
+}
+function rocket(x, y, s, flame, angle, t){
+  ctx.save(); ctx.translate(x,y); ctx.rotate(angle||0); ctx.scale(s,s);
+  if (flame>0){
+    const fl = 30 + Math.sin(t/50)*8 + flame*24;
+    const fg = ctx.createLinearGradient(0,30,0,30+fl); fg.addColorStop(0,'#fff3b0'); fg.addColorStop(.5,'#ff9a2e'); fg.addColorStop(1,'rgba(255,80,20,0)');
+    ctx.fillStyle = fg; ctx.beginPath(); ctx.moveTo(-9,30); ctx.lineTo(0,30+fl); ctx.lineTo(9,30); ctx.closePath(); ctx.fill();
+  }
+  ctx.fillStyle='#d9483b'; ctx.beginPath(); ctx.moveTo(-12,26); ctx.lineTo(-26,44); ctx.lineTo(-12,40); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(12,26); ctx.lineTo(26,44); ctx.lineTo(12,40); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#f2f4f8'; ctx.beginPath(); ctx.moveTo(-13,34); ctx.lineTo(-13,-10); ctx.quadraticCurveTo(0,-52,13,-10); ctx.lineTo(13,34); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#d9483b'; ctx.beginPath(); ctx.moveTo(-10,-22); ctx.quadraticCurveTo(0,-50,10,-22); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#3a78c9'; ctx.beginPath(); ctx.arc(0,-4,6,0,7); ctx.fill();
+  ctx.restore();
+}
+function mix(a,b,t){ return a.map((v,i)=>Math.round(lerp(v,b[i],t))); }
+function drawLaunch(t){
+  const u = Math.max(0.5, H/400);
+  const p = clamp((t-world.t0)/world.dur, 0, 1);
+  const planet = S.planet || 'moon';
+  if (p < 0.36){
+    const q = p/0.36;
+    const top = mix([90,170,255],[2,3,10],q), bot = mix([190,227,255],[10,16,48],q);
+    const g = ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,`rgb(${top})`); g.addColorStop(1,`rgb(${bot})`);
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    if (q>0.35) drawStars(t, (q-0.35)/0.65);
+    const gyy = H*0.86 + q*H*0.6;
+    ctx.fillStyle = '#4f8a4a'; ctx.fillRect(0,gyy,W,H);
+    ctx.fillStyle = '#8b8f99'; ctx.fillRect(W*0.5-46*u, gyy-8*u, 92*u, 10*u);
+    const ry = H*0.7 - q*q*H*0.95;
+    for (let i=0;i<16;i++){
+      const yy = ry + 44*u + i*11*u, a = Math.max(0, 0.55 - i*0.035);
+      ctx.fillStyle = `rgba(235,235,240,${a})`; ctx.beginPath(); ctx.arc(W*0.5 + Math.sin(i+t/200)*8*u*(i/6), yy, (7+i*1.4)*u, 0, 7); ctx.fill();
+    }
+    rocket(W*0.5, ry, 1.1*u, 1, 0, t);
+  } else if (p < 0.72){
+    const q = (p-0.36)/0.36;
+    ctx.fillStyle = '#02030a'; ctx.fillRect(0,0,W,H);
+    drawStars(t, 1);
+    const er = (90-q*55)*u; ctx.fillStyle='#2a6fd6'; ctx.beginPath(); ctx.arc(W*0.16, H*0.78, er, 0, 7); ctx.fill();
+    ctx.fillStyle='#3fae62'; ctx.beginPath(); ctx.arc(W*0.16-er*.25, H*0.78-er*.1, er*.35, 0, 7); ctx.fill();
+    const pr = (16+q*74)*u, px = W*0.8, py = H*0.3;
+    const pg = ctx.createRadialGradient(px-pr*.3,py-pr*.3,pr*.1,px,py,pr);
+    if (planet==='moon'){ pg.addColorStop(0,'#c9ccd4'); pg.addColorStop(1,'#5f626b'); } else { pg.addColorStop(0,'#e89060'); pg.addColorStop(1,'#7c3520'); }
+    ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(px,py,pr,0,7); ctx.fill();
+    rocket(lerp(W*0.3,W*0.62,q), lerp(H*0.62,H*0.4,q), 0.8*u, 0.7, 1.0, t);
+  } else {
+    const q = (p-0.72)/0.28, e = 1 - Math.pow(1-q,2);
+    const g = ctx.createLinearGradient(0,0,0,H);
+    if (planet==='moon'){ g.addColorStop(0,'#03050c'); g.addColorStop(1,'#151b30'); } else { g.addColorStop(0,'#5b2f22'); g.addColorStop(1,'#e0965f'); }
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    if (planet==='moon') drawStars(t,1);
+    const gyy = lerp(H*1.05, H*0.72, e);
+    ctx.fillStyle = planet==='moon' ? '#8c8f98' : '#b0552f'; ctx.fillRect(0,gyy,W,H);
+    const ry = lerp(-H*0.15, gyy-52*u, e);
+    if (q > 0.8){ const d = (q-0.8)/0.2;
+      ctx.fillStyle = planet==='moon' ? `rgba(200,200,205,${0.55-d*0.4})` : `rgba(220,150,100,${0.55-d*0.4})`;
+      for (let i=0;i<8;i++){ ctx.beginPath(); ctx.arc(W*0.5 + (i-3.5)*22*u*(0.4+d), gyy-6*u, (10+d*22)*u, 0, 7); ctx.fill(); } }
+    rocket(W*0.5, ry, 1.1*u, q<0.97?0.8:0, 0, t);
+  }
+}
+function drawMenu(t){
+  ctx.fillStyle = '#02040a'; ctx.fillRect(0,0,W,H); drawStars(t,1);
+}
+
+let last = 0;
+function frame(t){
+  requestAnimationFrame(frame);
+  if (!W) return;
+  const dt = Math.min(64, t - (last||t)); last = t;
+  ctx.clearRect(0,0,W,H);
+  if (world.mode==='menu') drawMenu(t);
+  else if (world.mode==='launch') drawLaunch(performance.now());
+  else drawWorld(performance.now(), dt);
+  if (T && threeActive) renderThree(t);
+}
+
+/* ---------------- THREE.JS PLANET SELECT ---------------- */
+let T = null, threeActive = false;
+function planetTex(kind){
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 512; const g = c.getContext('2d');
+  const r = mulberry(kind==='moon' ? 7 : 21);
+  if (kind==='moon'){
+    g.fillStyle = '#8d8f96'; g.fillRect(0,0,1024,512);
+    for (let i=0;i<16;i++){ const x=r()*1024,y=40+r()*430,rad=30+r()*80; const gr=g.createRadialGradient(x,y,0,x,y,rad); gr.addColorStop(0,'rgba(58,60,68,.5)'); gr.addColorStop(1,'rgba(58,60,68,0)'); g.fillStyle=gr; g.fillRect(x-rad,y-rad,rad*2,rad*2); }
+    for (let i=0;i<280;i++){ const x=r()*1024,y=r()*512,rad=2+r()*r()*26;
+      g.fillStyle='rgba(45,47,54,.32)'; g.beginPath(); g.arc(x,y,rad,0,7); g.fill();
+      g.strokeStyle='rgba(225,227,235,.35)'; g.lineWidth=1.5; g.beginPath(); g.arc(x,y,rad,0,7); g.stroke(); }
+    for (let i=0;i<9000;i++){ g.fillStyle=`rgba(${r()<.5?255:30},${r()<.5?255:30},${r()<.5?255:30},.05)`; g.fillRect(r()*1024,r()*512,2,2); }
+  } else {
+    g.fillStyle = '#b5532e'; g.fillRect(0,0,1024,512);
+    for (let i=0;i<22;i++){ const x=r()*1024,y=60+r()*390,rad=30+r()*90; const dark=r()<.6;
+      const gr=g.createRadialGradient(x,y,0,x,y,rad); gr.addColorStop(0,dark?'rgba(95,36,20,.55)':'rgba(230,150,95,.5)'); gr.addColorStop(1,'rgba(0,0,0,0)'); g.fillStyle=gr; g.fillRect(x-rad,y-rad,rad*2,rad*2); }
+    g.strokeStyle='rgba(80,28,16,.6)'; g.lineWidth=6; g.beginPath(); g.moveTo(180,270); g.bezierCurveTo(300,250,420,300,560,275); g.stroke();
+    for (let i=0;i<40;i++){ const x=r()*1024,y=r()*512,rad=2+r()*8; g.strokeStyle='rgba(70,25,14,.35)'; g.beginPath(); g.arc(x,y,rad,0,7); g.stroke(); }
+    let gr = g.createLinearGradient(0,0,0,34); gr.addColorStop(0,'rgba(255,255,255,.9)'); gr.addColorStop(1,'rgba(255,255,255,0)'); g.fillStyle=gr; g.fillRect(0,0,1024,34);
+    gr = g.createLinearGradient(0,512,0,478); gr.addColorStop(0,'rgba(255,255,255,.9)'); gr.addColorStop(1,'rgba(255,255,255,0)'); g.fillStyle=gr; g.fillRect(0,478,1024,34);
+  }
+  return new THREE.CanvasTexture(c);
+}
+function initThree(){
+  if (T) return T;
+  if (!window.THREE) return null;
+  try {
+    const canvas = $('#three');
+    const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 2));
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100); camera.position.z = 7;
+    scene.add(new THREE.AmbientLight(0x8a94ad, 0.6));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.25); sun.position.set(4,2,5); scene.add(sun);
+    const geo = new THREE.SphereGeometry(1, 64, 48);
+    const moon = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({map:planetTex('moon'), roughness:1, metalness:0}));
+    const mars = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({map:planetTex('mars'), roughness:1, metalness:0}));
+    moon.userData.key = 'moon'; mars.userData.key = 'mars';
+    scene.add(moon); scene.add(mars);
+    const sg = new THREE.BufferGeometry(); const pos = []; const rs = mulberry(3);
+    for (let i=0;i<500;i++) pos.push((rs()-.5)*40, (rs()-.5)*24, -6 - rs()*10);
+    sg.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
+    scene.add(new THREE.Points(sg, new THREE.PointsMaterial({color:0xffffff, size:0.05})));
+    T = {canvas, renderer, scene, camera, moon, mars, ray:new THREE.Raycaster(), mouse:new THREE.Vector2(), hover:null};
+    canvas.addEventListener('pointermove', e => {
+      const r = canvas.getBoundingClientRect();
+      T.mouse.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
+      T.ray.setFromCamera(T.mouse, T.camera);
+      const hit = T.ray.intersectObjects([T.moon, T.mars])[0];
+      T.hover = hit ? hit.object : null; canvas.style.cursor = hit ? 'pointer' : 'default';
+    });
+    canvas.addEventListener('click', e => {
+      const r = canvas.getBoundingClientRect();
+      T.mouse.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1);
+      T.ray.setFromCamera(T.mouse, T.camera);
+      const hit = T.ray.intersectObjects([T.moon, T.mars])[0];
+      if (hit) choosePlanet(hit.object.userData.key);
+    });
+    layoutThree();
+    return T;
+  } catch (e) { console.warn('Three.js unavailable', e); return null; }
+}
+function layoutThree(){
+  if (!T) return;
+  const w = T.canvas.clientWidth || 1, h = T.canvas.clientHeight || 1;
+  T.renderer.setSize(w, h, false);
+  T.camera.aspect = w/h;
+  if (T.camera.aspect < 0.9){
+    T.camera.position.z = 9; T.moon.position.set(0,1.7,0); T.mars.position.set(0,-1.5,0);
+    T.moon.scale.setScalar(1.25); T.mars.scale.setScalar(1.25);
+  } else {
+    T.camera.position.z = 7; T.moon.position.set(-2.4,0,0); T.mars.position.set(2.4,0,0);
+    T.moon.scale.setScalar(1.55); T.mars.scale.setScalar(1.55);
+  }
+  T.moon.userData.base = T.moon.scale.x; T.mars.userData.base = T.mars.scale.x;
+  T.camera.updateProjectionMatrix();
+}
+function renderThree(t){
+  T.moon.rotation.y = t/6000; T.mars.rotation.y = t/5200;
+  for (const m of [T.moon, T.mars]){
+    const base = m.userData.base || (m.userData.base = m.scale.x);
+    const target = (T.hover === m) ? base*1.07 : base;
+    m.scale.setScalar(lerp(m.scale.x, target, 0.15));
+  }
+  T.renderer.render(T.scene, T.camera);
+}
+
+/* ---------------- FLOW: SCREENS ---------------- */
+function showPlanetScreen(){
+  world.mode = 'menu'; hideScreen(); $('#hud').hidden = true; $('#track').hidden = true; $('#cardZone').innerHTML = '';
+  $('#planetScreen').style.display = 'block';
+  if (initThree()){ threeActive = true; layoutThree(); if (T){ T.moon.userData.base = T.moon.scale.x; T.mars.userData.base = T.mars.scale.x; } }
+  else $('#planetUI p').textContent = 'Step 1 · Choose your world using a button.';
+}
+function choosePlanet(key){
+  if (S.planet) return;
+  S.planet = key; threeActive = false;
+  $('#planetScreen').style.display = 'none';
+  crewScreen();
+}
+function crewScreen(){
+  const chosen = new Set();
+  const html = () => `
+    <h2>Step 2 · Pick your crew</h2>
+    <p class="sub">Choose 4 of 6. Each specialist can fix certain problems. Without them, that fix is locked!</p>
+    <div class="grid">${Object.keys(ROLES).map(k => `
+      <button class="rcard ${chosen.has(k)?'sel':''}" data-role="${k}">
+        <span class="ri">${ROLES[k].icon}</span><b>${ROLES[k].name}</b><span>${ROLES[k].desc}</span>
+      </button>`).join('')}</div>
+    <p class="count">${chosen.size} / 4 chosen</p>
+    <button class="btn" id="crewGo" ${chosen.size===4?'':'disabled'}>Continue ▶</button>`;
+  const render = () => {
+    showScreen(html());
+    document.querySelectorAll('.rcard').forEach(b => b.onclick = () => {
+      const k = b.dataset.role;
+      if (chosen.has(k)) chosen.delete(k); else if (chosen.size < 4) chosen.add(k);
+      render();
+    });
+    $('#crewGo').onclick = () => { S.crew = [...chosen]; landerScreen(); };
+  };
+  render();
+}
+function landerScreen(){
+  showScreen(`
+    <h2>Step 3 · Choose your lander</h2>
+    <p class="sub">Every choice costs something. Pick how you reach the surface.</p>
+    <div class="grid">
+      <button class="rcard" data-l="heavy"><span class="ri">🛬</span><b>Heavy Lander</b><span>Carries full supplies (everything starts at 100). But the landing is rough and can dent the shield. A Pilot makes it smooth.</span></button>
+      <button class="rcard" data-l="light"><span class="ri">🪂</span><b>Light Lander</b><span>Soft, safe landing. But it carries less: Power and Food start at 85.</span></button>
+    </div>`);
+  document.querySelectorAll('.rcard').forEach(b => b.onclick = () => { S.lander = b.dataset.l; launchSequence(); });
+}
+async function showCaption(text, ms){
+  $('#cap').textContent = text; $('#capWrap').hidden = false;
+  const bar = $('#capBar i'); bar.style.transition = 'none'; bar.style.width = '0';
+  void bar.offsetWidth; bar.style.transition = `width ${ms}ms linear`; bar.style.width = '100%';
+}
+async function launchSequence(){
+  hideScreen(); resize();
+  world.mode = 'launch'; world.t0 = performance.now(); world.dur = 5000;
+  const caps = [[0,'🚀 Liftoff!'],[1800,'🌌 Cruising through space…'],[3600,'🛬 Landing on ' + PLANETS[S.planet].name + '…']];
+  showCaption(caps[0][1], 5000);
+  caps.slice(1).forEach(([d,tx]) => setTimeout(() => { $('#cap').textContent = tx; }, d));
+  await sleep(5000);
+  $('#capWrap').hidden = true; world.mode = 'idle';
+  if (S.lander === 'light'){ S.m.power = 85; S.m.food = 85; }
+  let msg = 'Landing complete!', fx = {};
+  if (S.lander === 'heavy'){
+    if (S.crew.includes('pilot')) msg = '🚀 The Pilot made a perfectly smooth landing.';
+    else { fx = {shield:-10}; msg = 'The heavy lander hit the ground hard and dented the shield.'; }
+  } else msg = 'A soft, safe landing with lighter supplies.';
+  applyFx(fx); updateHud(); setTrack(1, true);
+  await infoCard({icon:'🌍', title:'Touchdown on ' + PLANETS[S.planet].name, body:msg, deltas:fx, btn:'Start the mission ▶'});
+  await playMission();
+}
+
+/* ---------------- FLOW: CARDS ---------------- */
+function askCard(card){
+  return new Promise(res => {
+    const z = $('#cardZone');
+    z.innerHTML = `
+      <div class="card-head"><div class="big">${card.icon}</div><h2>${card.title}</h2></div>
+      <p class="card-text">${card.text}</p>
+      <div class="choices">${card.choices.map((c,i) => {
+        const locked = c.needs && !S.crew.includes(c.needs);
+        const pv = c.risky ? '<span class="chip dice">🎲 risky</span>' : chips(c.fx);
+        const wf = c.wrong ? '<span class="chip warn">⚠️ problem later?</span>' : '';
+        return `<button class="choice ${c.needs&&!locked?'expert':''}" data-i="${i}" ${locked?'disabled':''}>
+          <span class="ci">${c.icon}</span><span class="cl">${c.label}</span><span class="ch">${c.hint||''}</span>
+          ${locked?`<span class="lock">🔒 Needs ${ROLES[c.needs].icon} ${ROLES[c.needs].name}</span>`:`<span class="chips">${pv}${wf}</span>`}
+        </button>`; }).join('')}</div>`;
+    z.querySelectorAll('.choice').forEach(b => b.onclick = () => res(card.choices[+b.dataset.i]));
+  });
+}
+function infoCard(o){
+  return new Promise(res => {
+    const z = $('#cardZone');
+    const adv = o.advisor ? `
+      <div class="advisor"><div class="av">👩‍🚀<span>😕</span></div><div>
+        <p><b>Mission Control</b></p><p>${o.advisor.line}</p>
+        ${o.advisor.fact ? `<p class="fact">🛰️ In real missions: ${o.advisor.fact}</p>` : ''}
+      </div></div>` : '';
+    z.innerHTML = `
+      <div class="card-head"><div class="big">${o.icon}</div><h2>${o.title}</h2></div>
+      ${o.body ? `<p class="card-text">${o.body}</p>` : ''}
+      ${o.deltas && Object.keys(o.deltas).some(k=>o.deltas[k]) ? `<div class="chips" style="margin-bottom:6px">${chips(o.deltas)}</div>` : ''}
+      ${o.note ? `<p class="card-text" style="color:var(--warn)">${o.note}</p>` : ''}
+      ${adv}
+      <button class="btn" id="infoGo">${o.btn || 'Continue ▶'}</button>`;
+    $('#infoGo').onclick = () => { z.innerHTML = ''; res(); };
+  });
+}
+async function playAnim(type, caption, actor, ms){
+  ms = ms || 5000;
+  $('#cardZone').innerHTML = '';
+  world.mode = 'anim'; world.anim = type; world.actor = actor || null; world.t0 = performance.now(); world.dur = ms;
+  showCaption(caption, ms);
+  await sleep(ms);
+  $('#capWrap').hidden = true; world.mode = 'idle'; world.actor = null;
+}
+
+/* ---------------- GAME LOGIC ---------------- */
+function applyFx(fx, scaleNeg){
+  const out = {};
+  for (const k in (fx||{})){
+    let v = fx[k]; if (scaleNeg && v < 0) v = Math.round(v*0.5);
+    S.m[k] = clamp(S.m[k] + v); out[k] = v;
+  }
+  return out;
+}
+function checkDead(){
+  if (S.dead) return;
+  for (const k in S.m){ if (S.m[k] <= 0){ S.dead = {k, sol:S.sol}; return; } }
+}
+function addFault(f, scale){
+  const rec = { id:S.nextId++, system:f.system, daysLeft:f.days, dmg: scale ? Math.round(f.dmg*0.5) : f.dmg,
+                name:f.name, cause:f.cause, createdSol:S.sol, landedSol:null, fixed:false };
+  S.faults.push(rec); S.allFaults.push(rec); return rec;
+}
+async function resolveChoice(card, c){
+  let fx = c.fx || {}, msg = c.msg || '', fault = c.fault || null, bad = !!c.wrong, note = '';
+  if (c.risky){
+    const chance = 0.25 + (S.crew.includes('commander') ? 0.15 : 0);
+    if (Math.random() < chance){ fx = c.fx; msg = c.msgOk; fault = null; bad = false; }
+    else { fx = c.failFx || {}; msg = c.msgBad; bad = true; }
+  }
+  const actorRole = c.needs || (c.risky ? null : null);
+  await playAnim(c.anim || card.anim || 'rest', c.caption || 'Working…', actorRole);
+  const scale = card.planetEvent && S.prepared;
+  const applied = applyFx(fx, scale);
+  if (c.setPrepared){ S.prepared = true; }
+  if (c.special === 'patch'){
+    if (S.faults.length){
+      S.faults.sort((a,b) => a.daysLeft - b.daysLeft);
+      const f = S.faults.shift(); f.fixed = true;
+      msg = `✅ Fixed: "${f.name}" will not happen now.`;
+    } else {
+      const k = Object.keys(S.m).sort((a,b) => S.m[a]-S.m[b])[0]; S.m[k] = clamp(S.m[k]+10);
+      msg = `Nothing to fix, so the crew boosted ${METERS[k].name} instead.`;
+      applied[k] = 10;
+    }
+  }
+  if (scale && Object.values(fx).some(v => v<0)) note = '🔋 Rationing earlier softened the blow!';
+  let fnote = '';
+  if (fault && (c.wrong || c.risky)){
+    const f = addFault(fault, scale && fault.planetEvent);
+    fnote = `⚠️ Warning: something may go wrong in ${f.daysLeft} day${f.daysLeft===1?'':'s'}.`;
+  }
+  checkDead(); updateHud();
+  const advisor = bad ? {
+    line: c.risky ? 'Hmm… without the right specialist, that repair was a gamble.' : 'Hmm… are you sure that was wise? Small problems can grow.',
+    fact: card.fact || ''
+  } : null;
+  const title = bad ? (c.risky ? '❌ It did not work' : '⚠️ Problem postponed') : (c.risky ? '🎉 It worked!' : '✅ Done');
+  await infoCard({icon:card.icon, title, body:msg, deltas:applied, note: [note,fnote].filter(Boolean).join(' '), advisor});
+}
+async function morning(){
+  const landed = [];
+  for (const f of S.faults){ f.daysLeft--; }
+  S.faults = S.faults.filter(f => { if (f.daysLeft <= 0){ landed.push(f); return false; } return true; });
+  updateHud();
+  if (!landed.length) return;
+  for (const f of landed){
+    f.landedSol = S.sol; applyFx({[f.system]: -f.dmg});
+  }
+  checkDead(); updateHud();
+  const lines = landed.map(f => `<b>${METERS[f.system].icon} ${f.name}</b> (from Sol ${f.createdSol}: ${f.cause}) hit for −${f.dmg}.`).join('<br>');
+  await infoCard({icon:'🚨', title:'Morning alert!', body:'An old problem has arrived:<br>' + lines,
+    deltas: landed.reduce((a,f) => (a[f.system]=(a[f.system]||0)-f.dmg, a), {}),
+    advisor:{line:'This is what happens when a problem waits. Mission decisions echo for days.', fact:'Real engineers fix small faults early, because small problems can grow into big ones later in a mission.'}});
+}
+async function endOfSol(){
+  const base = {power:-5, o2:-5, food:-5, shield:-2, crew:-2};
+  if (S.crew.includes('commander')) base.crew = -1;
+  if (S.planet==='moon') base.shield -= 1; else base.power -= 1;
+  applyFx(base); checkDead(); updateHud();
+  if (S.dead) return;
+  toast('🌙 Night falls… ' + Object.keys(base).map(k => METERS[k].icon + base[k]).join('  '));
+  setTrack(S.sol+1);
+  world.mode = 'drive';
+  await sleep(2700);
+  world.mode = 'idle'; hideToast();
+}
+async function playMission(){
+  world.mode = 'idle';
+  for (S.sol = 1; S.sol <= 10; S.sol++){
+    updateHud(); setTrack(S.sol);
+    if (S.sol > 1){ await morning(); if (S.dead) break; }
+    for (const card of cardsForSol(S.sol)){
+      const choice = await askCard(card);
+      await resolveChoice(card, choice);
+      if (S.dead) break;
+    }
+    if (S.dead) break;
+    if (S.sol < 10){ await endOfSol(); if (S.dead) break; }
+  }
+  if (S.sol > 10) S.sol = 10;
+  finish();
+}
+function finish(){
+  world.mode = 'idle'; $('#cardZone').innerHTML = ''; hideToast();
+  const win = !S.dead;
+  const landedN = S.allFaults.filter(f => f.landedSol).length;
+  const stars = !win ? 0 : landedN === 0 ? 3 : landedN <= 2 ? 2 : 1;
+  const tl = S.allFaults.length ? S.allFaults.map(f =>
+    `<li>Sol ${f.createdSol}: ${f.cause} → ${f.fixed ? '✅ fixed before it hit' : f.landedSol ? `⚠️ Sol ${f.landedSol}: ${METERS[f.system].icon} −${f.dmg} (${f.name})` : 'still waiting…'}</li>`).join('')
+    : '<li>No problems were left unfixed. Perfect discipline!</li>';
+  showScreen(`
+    <h2>${win ? '🎉 Mission Complete!' : '💥 Mission Failed'}</h2>
+    <p class="sub">${win ? `Your crew survived all 10 Sols on ${PLANETS[S.planet].name}.` : `Sol ${S.dead.sol}: ${DEATH[S.dead.k]}`}</p>
+    ${win ? `<div class="stars">${'⭐'.repeat(stars)}${'☆'.repeat(3-stars)}</div>` : ''}
+    <div class="chips" style="margin:10px 0">${Object.keys(METERS).map(k => `<span class="chip ${S.m[k]>25?'up':'down'}">${METERS[k].icon} ${METERS[k].name} ${Math.round(S.m[k])}</span>`).join('')}</div>
+    <h3 style="font-family:'Space Grotesk',sans-serif;margin:18px 0 0">Your problem timeline</h3>
+    <p class="sub" style="margin:2px 0 0">Every problem you left waiting, and when it finally hit.</p>
+    <ul class="tl">${tl}</ul>
+    <button class="btn" id="again">Play again ↺</button>`);
+  $('#again').onclick = () => { resetState(); $('#hud').hidden = true; $('#track').hidden = true; showPlanetScreen(); };
+}
+
+/* ---------------- INIT ---------------- */
+buildHud();
+document.querySelectorAll('.pbtn').forEach(b => b.onclick = () => choosePlanet(b.dataset.planet));
+window.addEventListener('resize', resize);
+if (window.ResizeObserver) new ResizeObserver(() => resize()).observe($('#stage'));
+resize();
+requestAnimationFrame(frame);
+showPlanetScreen();
+})();
+</script>
+</body>
+</html>
